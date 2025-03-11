@@ -1,0 +1,92 @@
+// Include libraries
+#include <PulseSensorPlayground.h>
+#include <DHT.h>
+
+// Pin definitions
+const int GSR_pin = A1;
+const int pulsePin = A0;
+const int greenLED = 9;
+const int redLED = 10;
+
+// Pulse sensor
+PulseSensorPlayground pulseSensor;
+
+// DHT sensor
+#define DHTPIN 2
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// Thresholds
+const int GSR_threshold = 600;  // Adjust based on your GSR setup
+const int BPM_threshold = 160;   // Stress threshold for BPM
+const float TEMP_HIGH_THRESHOLD = 35.0;  // High temperature threshold in °C
+const float HUMIDITY_HIGH_THRESHOLD = 80.0;  // High humidity threshold in %
+
+void setup() {
+  Serial.begin(9600);  // Start serial communication
+
+  // Initialize sensors
+  pulseSensor.analogInput(pulsePin);
+  pulseSensor.setThreshold(600);  // Adjust based on setup
+  pulseSensor.begin();
+  dht.begin();
+
+  // Initialize LEDs
+  pinMode(greenLED, OUTPUT);
+  pinMode(redLED, OUTPUT);
+
+  // Calibration period
+  Serial.println("Calibrating sensors... Please wait.");
+  delay(5000);  // Wait 5 seconds for sensors to stabilize
+  Serial.println("Calibration complete.");
+}
+
+void loop() {
+  // Read GSR value
+  int GSR_value = analogRead(GSR_pin);
+
+  // Heart rate reading
+  int bpm = pulseSensor.getBeatsPerMinute();
+  bool beatDetected = pulseSensor.sawStartOfBeat();
+
+  // Read temperature and humidity
+  float temp = dht.readTemperature();
+  float humidity = dht.readHumidity();
+
+  // Check for valid DHT readings
+  if (isnan(temp) || isnan(humidity)) {
+    temp = 0;  // Use 0 to indicate invalid readings
+    humidity = 0;
+  }
+
+  // Output to Serial Plotter (simple format for plotting)
+  Serial.print("BPM ");
+  Serial.print(bpm);
+  Serial.print(" Temp ");
+  Serial.print(temp);
+  Serial.print(" Humidity ");
+  Serial.print(humidity);
+  Serial.print(" GSR ");
+  Serial.println(GSR_value);
+  Serial.println();
+
+  // LED logic
+   if (GSR_value > GSR_threshold || bpm > BPM_threshold) {
+    // Stress or high BPM detected
+    digitalWrite(redLED, HIGH);
+    digitalWrite(greenLED, LOW);
+    Serial.println("Stress detected or high BPM!");
+  } else if (temp > TEMP_HIGH_THRESHOLD || humidity > HUMIDITY_HIGH_THRESHOLD) {
+    // High temperature and humidity detected
+    digitalWrite(redLED, HIGH);
+    digitalWrite(greenLED, LOW);
+     Serial.println("Extreme heat and humidity detected!");
+  } else {
+    // Normal state
+    digitalWrite(redLED, LOW);
+    digitalWrite(greenLED, HIGH);
+ 
+  }
+
+  delay(1000);  // Short delay for smoother plotting
+}
